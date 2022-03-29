@@ -1,4 +1,4 @@
-import { Component, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Header } from "../../components/Header";
 import api from "../../services/api";
@@ -6,13 +6,14 @@ import { Food } from "../../components/Food";
 import { ModalAddFood } from "../../components/ModalAddFood";
 import { ModalEditFood } from "../../components/ModalEditFood";
 import { FoodsContainer } from "./styles";
-import { GetFood } from "../../utils/types";
+import { GetFood, AddFood } from "../../utils/types";
 
-function Dashboard(){
+
+export function Dashboard(){
   const [foods, setFoods] = useState<GetFood[]>([]);
   const [editingFood, setEditingFood] = useState<GetFood>({} as GetFood);
   const [modalOpen, setModalOpen] = useState(false);
-  const [editModalOpen, setEditModalOpen] = useState(false);	
+  const [editModalOpen, setEditModalOpen] = useState(false);
 
   useEffect(() => {
     async function loadFoods(): Promise<void> {
@@ -21,69 +22,74 @@ function Dashboard(){
     }
     loadFoods();
   }, []);
-    
-  async function handleAddFood(food: Omit<GetFood, 'id' | 'available'>){
-    try{
-      const response = await api.post("/foods",
-      ...food,
-      available: true,
-      )};
 
-    setFoods([...foods, response.data]);
-  } catch (err) {
-    console.log(err);
+  async function handleAddFood(food: AddFood): Promise<void> {
+    try {
+      const response = await api.post("/foods", {
+        ...food,
+        available: true,
+      });
+
+      setFoods([...foods, response.data]);
+    } catch (err) {
+      console.log(err);
+    }
   }
-
-  function handleUpdateFood(food: GetFood): void {
-    const foodsFiltered = foods.filter((foodItem) => foodItem.id !== food.id);
-
-    setFoods([...foodsFiltered, food]);
+  async function handleUpdateFood(food: AddFood): Promise<void> {
+    try {
+      const foodUpdated = await api.put(`/foods/${editingFood.id}`, {
+        ...editingFood,
+        ...food,
+      });
+      const foodList = foods.map((f) =>
+        f.id !== foodUpdated.data.id ? f : foodUpdated.data
+      );
+      setFoods(foodList);
+    } catch (err) {
+      console.log(err);
+    }
   }
-
-  function handleDeleteFood(id: number): void {
-    const foodsFiltered = foods.filter((foodItem) => foodItem.id !== id);
+  async function handleDeleteFood(id: number):Promise <void>{
     await api.delete(`/foods/${id}`);
-    setFoods(foodsFiltered);
+    const foodList = foods.filter(food => food.id !== id);
+    setFoods(foodList);
   }
-  
-  function toggleModal(): void {
+  function toggleModal(){
     setModalOpen(!modalOpen);
   }
-
-  function toggleEditModal(): void {
+  function toggleEditModal(){
     setEditModalOpen(!editModalOpen);
   }
-
-  function handleEditFood(food: GetFood): void {
+  function handleEditFood(food: GetFood){
     setEditingFood(food);
     toggleEditModal();
   }
-    return (
-      <>
-        <Header openModal={toggleModal} />
-        <ModalAddFood
-          isOpen={modalOpen}
-          setIsOpen={toggleModal}
-          handleAddFood={handleAddFood}
-        />
-        <ModalEditFood
-          isOpen={editModalOpen}
-          setIsOpen={toggleEditModal}
-          editingFood={editingFood}
-          handleUpdateFood={handleUpdateFood}
-        />
 
-        <FoodsContainer data-testid="foods-list">
-          {foods &&
-            foods.map((food) => (
-              <Food
-                key={food.id}
-                food={food}
-                handleDelete={handleDeleteFood}
-                handleEditFood={handleEditFood}
-              />
-            ))}
-        </FoodsContainer>
-      </>
-    );
-
+  return (
+    <>
+      <Header onHandleOpenModal={toggleModal} />
+      <ModalAddFood
+        isOpen={modalOpen}
+        setIsOpen={toggleModal}
+        handleAddFood={handleAddFood}
+      />
+      <ModalEditFood
+        isOpen={editModalOpen}
+        setIsOpen={toggleEditModal}
+        editingFood={editingFood}
+        handleUpdateFood={handleUpdateFood}
+      />
+      <FoodsContainer data-testid="foods-list">
+        {foods &&
+          foods.map((food) => (
+            <Food
+              key={food.id}
+              food={food}
+              handleDeleteFood={handleDeleteFood}
+              handleEditFood={handleEditFood}
+            />
+          ))}
+      </FoodsContainer>
+    </>
+  );
+}
